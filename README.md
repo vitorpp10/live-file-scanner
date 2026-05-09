@@ -1,4 +1,4 @@
-# live file scanner
+# live linux file scanner
 
 this is a small c++ project i built to experiment with linux system calls, concurrency, and file monitoring.
 the program runs in the background, watches the current directory, and automatically sorts new files into SAFE or PERIGOSO folders based on what the file actually is, not just the extension.
