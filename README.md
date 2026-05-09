@@ -9,13 +9,13 @@ it's basically a small experiment to understand how file monitors or antiviruses
 the program follows a simple producer-consumer model:
 
 inotify thread (detects new files)
-↓
+->
 thread-safe queue
-↓
+->
 worker thread pool (analyzes files)
-↓
+->
 pipe communication
-↓
+->
 child process that moves files
 
 ## how it works
