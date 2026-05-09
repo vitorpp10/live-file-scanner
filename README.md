@@ -1,23 +1,55 @@
 # live file scanner
 
-so i built this c++ program to mess around with linux system calls and concurrency. basically, it runs in the background, watches the folder you are in, and automatically sorts new files into `SAFE` or `PERIGOSO` (dangerous) folders based on what they actually are, not just their extensions.
+this is a small c++ project i built to experiment with linux system calls, concurrency, and file monitoring.
+the program runs in the background, watches the current directory, and automatically sorts new files into SAFE or PERIGOSO folders based on what the file actually is, not just the extension.
+it's basically a small experiment to understand how file monitors or antiviruses might work internally.
 
-it's a fun experiment on how antiviruses or file monitors work under the hood.
+## architecture
+
+the program follows a simple producer-consumer model:
+
+inotify thread (detects new files)
+↓
+thread-safe queue
+↓
+worker thread pool (analyzes files)
+↓
+pipe communication
+↓
+child process that moves files
 
 ## how it works
 
-the code pieces together a few core linux concepts:
+### watching the folder (inotify)
+a dedicated thread uses linux inotify to monitor the current directory. whenever a file is closed after writing (IN_CLOSE_WRITE), the program detects it and pushes the filename into a queue.
 
-* **watching the folder (`inotify`):** there's a thread just using `inotify` to monitor the current directory. whenever a file is closed after writing (`IN_CLOSE_WRITE`), it grabs the filename and pushes it to a queue.
-* **thread pool & thread-safe queue:** i made a custom thread-safe queue using `std::mutex` and `std::condition_variable`. a pool of worker threads constantly pulls filenames from this queue to inspect them.
-* **reading magic numbers:** instead of trusting the file extension, the workers open the file and read the first 4 bytes (the magic numbers). if it spots `ELF` (linux executable), `MZ` (windows executable), or `#!` (shell script), it flags the file as dangerous.
-* **pipes and forks for moving files:** the workers send the classification result (`SAFE` or `PERIGOSO`) through a pipe to a child process. this child process reads the pipe, creates the folders if they don't exist, and forks again to run the linux `mv` command via `execlp` to physically move the file.
-* **graceful shutdown:** when you hit ctrl+c (`SIGINT`), a signal handler stops the loops safely. at the end, the program uses `getrusage` to print out the total execution time and the max memory (rss) it used.
+### thread pool and thread-safe queue
+i implemented a custom thread-safe queue using std::mutex and std::condition_variable. a pool of worker threads constantly pulls filenames from the queue and processes them.
+
+### reading magic numbers
+instead of trusting file extensions, workers open the file and read the first few bytes (magic numbers).
+the program currently detects:
+
+* ELF -> linux executables
+* MZ -> windows executables
+* #! -> shell scripts
+
+for demonstration purposes these files are classified as "dangerous".
+
+### pipes and forks for moving files
+worker threads send the classification result (SAFE or PERIGOSO) through a pipe to a child process.
+the child process reads the pipe, creates the folders if they do not exist, and forks again to execute the linux "mv" command using execlp to move the files.
+
+### graceful shutdown
+when ctrl+c (SIGINT) is triggered, a signal handler stops the loops safely.
+at the end of execution the program prints some basic stats using getrusage:
+
+* total execution time
+* max memory usage (rss)
 
 ## how to run
 
-compile the code using g++ (c++11 or higher is needed for the threading stuff):
-
+compile with g++:
 ```
-g++ -pthread main.cpp -o a && ./a
+g++ -std=c++17 -pthread main.cpp -o scanner
 ```
