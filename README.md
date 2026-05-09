@@ -19,5 +19,5 @@ the code pieces together a few core linux concepts:
 compile the code using g++ (c++11 or higher is needed for the threading stuff):
 
 ```
-g++ main.cpp -o scanner -lpthread
+g++ -pthread main.cpp -o a && ./a
 ```
